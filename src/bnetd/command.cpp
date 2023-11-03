@@ -2502,11 +2502,22 @@ namespace pvpgn
 				account_get_auth_admin(acc, channel_get_name(channel)) != 1 && /* default to false */
 				account_get_auth_operator(acc, NULL) != 1 && /* default to false */
 				account_get_auth_operator(acc, channel_get_name(channel)) != 1 && /* default to false */
-				!channel_conn_is_tmpOP(channel, account_get_conn(acc)))
-			{
-				message_send_text(c, message_type_error, c, localize(c, "You have to be at least a Channel Operator or tempOP to use this command."));
+				!channel_conn_is_tmpOP(channel, account_get_conn(conn_get_account(c)))) //allow tmpop
+			{ 
+				message_send_text(c, message_type_error, c, localize(c, "You have to be at least a Channel Operator to use this command."));
 				return -1;
 			}
+			if (channel_conn_is_tmpOP(channel, account_get_conn(conn_get_account(c))) && !conn_get_game(c)) //disallow tmpop in non-game channels
+			{
+				message_send_text(c, message_type_error, c, localize(c, "You cannot use this command as a tmpop in a non-game channel."));
+				return -1;
+			}
+			if (channel_conn_is_tmpOP(channel, account_get_conn(conn_get_account(c))) && //only tmpop channel hosts can use this command
+				!(channel_get_shortname(channel) == (std::string(conn_get_loggeduser(c)) + "'s game")))
+			{
+				message_send_text(c, message_type_error, c, localize(c, "You cannot use this command in this channel."));
+				return -1;
+			}	
 			if (!(kuc = connlist_find_connection_by_accountname(username)))
 			{
 				message_send_text(c, message_type_error, c, localize(c, "That user is not logged in."));
@@ -2517,17 +2528,20 @@ namespace pvpgn
 				message_send_text(c, message_type_error, c, localize(c, "That user is not in this channel."));
 				return -1;
 			}
-			if (account_get_auth_admin(conn_get_account(kuc), NULL) == 1 ||
-				account_get_auth_admin(conn_get_account(kuc), channel_get_name(channel)) == 1)
+			if (!conn_get_game(c))
 			{
-				message_send_text(c, message_type_error, c, localize(c, "You cannot kick administrators."));
-				return -1;
-			}
-			else if (account_get_auth_operator(conn_get_account(kuc), NULL) == 1 ||
-				account_get_auth_operator(conn_get_account(kuc), channel_get_name(channel)) == 1)
-			{
-				message_send_text(c, message_type_error, c, localize(c, "You cannot kick operators."));
-				return -1;
+				if (account_get_auth_admin(conn_get_account(kuc), NULL) == 1 ||
+					account_get_auth_admin(conn_get_account(kuc), channel_get_name(channel)) == 1)
+				{
+					message_send_text(c, message_type_error, c, localize(c, "You cannot kick administrators."));
+					return -1;
+				}
+				else if (account_get_auth_operator(conn_get_account(kuc), NULL) == 1 ||
+					account_get_auth_operator(conn_get_account(kuc), channel_get_name(channel)) == 1)
+				{
+					message_send_text(c, message_type_error, c, localize(c, "You cannot kick operators."));
+					return -1;
+				}
 			}
 
 			{
@@ -2578,11 +2592,23 @@ namespace pvpgn
 			if (account_get_auth_admin(conn_get_account(c), NULL) != 1 && /* default to false */
 				account_get_auth_admin(conn_get_account(c), channel_get_name(channel)) != 1 && /* default to false */
 				account_get_auth_operator(conn_get_account(c), NULL) != 1 && /* default to false */
-				account_get_auth_operator(conn_get_account(c), channel_get_name(channel)) != 1) /* default to false */
-			{
+				account_get_auth_operator(conn_get_account(c), channel_get_name(channel)) != 1 && /* default to false */
+				!channel_conn_is_tmpOP(channel, account_get_conn(conn_get_account(c)))) //allow tmpop
+			{ 
 				message_send_text(c, message_type_error, c, localize(c, "You have to be at least a Channel Operator to use this command."));
 				return -1;
 			}
+			if (channel_conn_is_tmpOP(channel, account_get_conn(conn_get_account(c))) && !conn_get_game(c)) //disallow tmpop in non-game channels
+			{
+				message_send_text(c, message_type_error, c, localize(c, "You cannot use this command as a tmpop in a non-game channel."));
+				return -1;
+			}
+			if (channel_conn_is_tmpOP(channel, account_get_conn(conn_get_account(c))) && //only tmpop channel hosts can use this command
+				!(channel_get_shortname(channel) == (std::string(conn_get_loggeduser(c)) + "'s game")))
+			{
+				message_send_text(c, message_type_error, c, localize(c, "You cannot use this command in this channel."));
+				return -1;
+			}	
 			{
 				t_account * account;
 
@@ -2600,6 +2626,11 @@ namespace pvpgn
 					account_get_auth_operator(account, channel_get_name(channel)) == 1)
 				{
 					message_send_text(c, message_type_error, c, localize(c, "You cannot ban operators."));
+					return -1;
+				}
+				else if (std::string(conn_get_loggeduser(c)) == username) //prevent banning yourself
+				{
+					message_send_text(c, message_type_error, c, localize(c, "You cannot ban yourself."));
 					return -1;
 				}
 			}
@@ -2648,12 +2679,23 @@ namespace pvpgn
 			if (account_get_auth_admin(conn_get_account(c), NULL) != 1 && /* default to false */
 				account_get_auth_admin(conn_get_account(c), channel_get_name(channel)) != 1 && /* default to false */
 				account_get_auth_operator(conn_get_account(c), NULL) != 1 && /* default to false */
-				account_get_auth_operator(conn_get_account(c), channel_get_name(channel)) != 1) /* default to false */
-			{
-				message_send_text(c, message_type_error, c, localize(c, "You are not a channel operator."));
+				account_get_auth_operator(conn_get_account(c), channel_get_name(channel)) != 1 && /* default to false */
+				!channel_conn_is_tmpOP(channel, account_get_conn(conn_get_account(c)))) //allow tmpop
+			{ 
+				message_send_text(c, message_type_error, c, localize(c, "You have to be at least a Channel Operator to use this command."));
 				return -1;
 			}
-
+			if (channel_conn_is_tmpOP(channel, account_get_conn(conn_get_account(c))) && !conn_get_game(c)) //disallow tmpop in non-game channels
+			{
+				message_send_text(c, message_type_error, c, localize(c, "You cannot use this command as a tmpop in a non-game channel."));
+				return -1;
+			}
+			if (channel_conn_is_tmpOP(channel, account_get_conn(conn_get_account(c))) && //only tmpop channel hosts can use this command
+				!(channel_get_shortname(channel) == (std::string(conn_get_loggeduser(c)) + "'s game")))
+			{
+				message_send_text(c, message_type_error, c, localize(c, "You cannot use this command in this channel."));
+				return -1;
+			}	
 			if (channel_unban_user(channel, text) < 0)
 			{
 				message_send_text(c, message_type_error, c, localize(c, "That user is not banned."));
@@ -4664,7 +4706,7 @@ namespace pvpgn
 			if (strcasecmp(value, "null") == 0)
 				value = NULL;
 
-			std::sprintf(msgtemp0, " \"%.64s\" (%.128s = \"%.128s\")", account_get_name(account), key, value);
+			std::snprintf(msgtemp0, sizeof(msgtemp0), " \"%.64s\" (%s = \"%s\")", account_get_name(account), key, value); // maximum number of characters
 
 			if (account_set_strattr(account, key, value) < 0)
 			{
